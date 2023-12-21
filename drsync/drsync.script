@@ -1,0 +1,107 @@
+local drsync = require "drsync/drsync"
+
+function init(self)
+    self.id = nil
+    self.factory_url = nil
+    self.is_local = false
+end
+
+function final(self)
+    -- todo remove remotely etc
+end
+
+function update(self, dt)
+    -- only push updates from local instances
+    if not self.is_local then
+        return
+    end
+    
+    local url = msg.url()
+    url.fragment = nil
+
+    local urlkey = hash_to_hex(url.socket)..hash_to_hex(url.path)
+
+    if DRSYNC.SYNCED_PROPS[urlkey] then
+        for k,v in pairs(DRSYNC.SYNCED_PROPS[urlkey]) do
+            local value = go.get(url, v.prop)
+            local packed_value = raw_value
+            local has_changed = false
+            --local proptype = "string"
+            --local typestr = type(pv)
+            --print(pv)
+            --print(typestr)
+            --if typestr == "number" then
+            --	proptype = "number"
+            --end
+            if v.prop_type == "vec3" then
+                has_changed = v.prev_value.x ~= value.x or
+                              v.prev_value.y ~= value.y or
+                              v.prev_value.z ~= value.z
+                packed_value = value.x.."#"..value.y.."#"..value.z
+            elseif v.prop_type == "vec4" then
+                has_changed = v.prev_value.x ~= value.x or
+                              v.prev_value.y ~= value.y or
+                              v.prev_value.z ~= value.z or
+                              v.prev_value.w ~= value.w
+                packed_value = value.x.."#"..value.y.."#"..value.z.."#"..value.w
+            else
+                -- numbers?
+                has_changed = v.prev_value ~= value
+                packed_value = tostring(value)
+            end
+
+            if has_changed then
+                v.prev_value = value
+                DRSYNC._SEND_MESSAGE("DRSYNC_PROP", {
+                    id = self.id,
+                    prop = v.prop,
+                    value = packed_value,
+                    type = v.prop_type
+                })
+            end
+        end
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("DRSYNC_LOCAL") then
+        self.is_local = true
+        self.id = message.id
+        self.factory_url = message.factory_url
+
+        local p = go.get_position()
+        local r = go.get_rotation()
+        local s = go.get_scale()
+
+        DRSYNC._SEND_MESSAGE("DRSYNC_SPAWN", {id = self.id, url = self.factory_url,
+            position = {x=p.x,y=p.y,z=p.z},
+            rotation = {x=r.x,y=r.y,z=r.z,w=r.w},
+            scale = {x=s.x,y=s.y,z=s.z},
+        })
+        
+        local url = msg.url()
+        DRSYNC.LOCAL_IDS[self.id] = url
+    elseif message_id == hash("DRSYNC_REMOTE") then
+        self.id = message.id
+        self.factory_url = message.factory_url
+    elseif message_id == hash("DRSYNC_PROP") then
+
+        local prop = message.prop
+        local value = message.value
+        local proptype = message.type
+
+        local url = msg.url()
+        url.fragment = nil
+        --value = tonumber(value)
+        if proptype == "number" then
+            value = tonumber(value)
+        elseif proptype == "vec3" then
+            local tx,ty,tz = string.match(value, "([^#]+)#([^#]+)#([^#]+)")
+            value = vmath.vector3(tonumber(tx), tonumber(ty), tonumber(tz))
+        elseif proptype == "vec4" then
+            local tx,ty,tz,tw = string.match(value, "([^#]+)#([^#]+)#([^#]+)#([^#]+)")
+            value = vmath.vector4(tonumber(tx), tonumber(ty), tonumber(tz), tonumber(tw))
+        end
+        go.set(url, prop, value)
+    end
+end

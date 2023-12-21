@@ -1,0 +1,50 @@
+local dirtylarry = require "main/gui_comps/dl_2"
+dirtylarry.colors.enabled = vmath.vector4(209/255, 198/255, 194/255, 1)
+
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    self.checkbox_value = false
+    self.radio_value = "a"
+
+    self.name = ""
+    self.server_ip = ""
+    self.server_port = ""
+end
+
+function update(self, dt)
+    -- Add update code here
+    -- Learn more: https://defold.com/manuals/script/
+    -- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+    -- Add message-handling code here
+    -- Learn more: https://defold.com/manuals/message-passing/
+    -- Remove this function if not needed
+end
+
+function on_input(self, action_id, action)
+    self.name = dirtylarry:input("input_name", action_id, action, gui.KEYBOARD_TYPE_DEFAULT, "Name")
+    self.server_ip   = dirtylarry:input("input_server_ip", action_id, action, gui.KEYBOARD_TYPE_DEFAULT, "Server IP")
+    self.server_port = dirtylarry:input("input_server_port", action_id, action, gui.KEYBOARD_TYPE_DEFAULT, "Server Port")
+    dirtylarry:button("button_start_client", action_id, action, function ()
+        msg.post("main", "start_client", {ip=self.server_ip, port=self.server_port, name=self.name})
+    end)
+    dirtylarry:button("button_start_server", action_id, action, function ()
+        msg.post("main", "start_server", {ip=self.server_ip, port=self.server_port, name=self.name})
+    end)
+    dirtylarry:button("button_start_all", action_id, action, function ()
+        msg.post("main", "start_server", {ip=self.server_ip, port=self.server_port, name=self.name})
+        msg.post("main", "start_client", {ip=self.server_ip, port=self.server_port, name=self.name})
+    end)
+    --[[
+    dirtylarry:button("button_test", action_id, action, function ()
+        print("button was pressed")
+    end)
+
+    self.checkbox_value = dirtylarry:checkbox("checkbox_test", action_id, action, self.checkbox_value)
+
+    self.radio_value = dirtylarry:radio("radio_1_test", action_id, action, "a", self.radio_value, "radio_1")
+    self.radio_value = dirtylarry:radio("radio_2_test", action_id, action, "b", self.radio_value, "radio_1")
+    ]]
+end

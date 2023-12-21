@@ -1,0 +1,27 @@
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[script]
+shared_state = 1
+
+[display]
+width = 960
+height = 640
+
+[android]
+input_method = HiddenInputField
+
+[project]
+title = autosync
+dependencies#0 = https://github.com/andsve/dirtylarry/archive/master.zip
+dependencies#1 = https://github.com/defold/extension-websocket/archive/master.zip
+
+[graphics]
+default_texture_min_filter = nearest
+default_texture_mag_filter = nearest
+
+[render]
+clear_color_red = 0.55
+clear_color_green = 0.49
+clear_color_blue = 0.47
+

@@ -1,0 +1,66 @@
+local function log(text)
+	print(text)
+	msg.post("#gui", "log", {msg = text})
+end
+
+local function websocket_callback(self, conn, data)
+	if data.event == websocket.EVENT_DISCONNECTED then
+		log("Disconnected: " .. tostring(conn))
+		self.connection = nil
+		--update_gui(self)
+	elseif data.event == websocket.EVENT_CONNECTED then
+		--update_gui(self)
+		log("Connected: " .. tostring(conn))
+		DRSYNC.SEND_MESSAGE = function(data)
+			websocket.send(self.connection, data)
+		end
+	elseif data.event == websocket.EVENT_ERROR then
+		log("Error: '" .. tostring(data.message) .. "'")
+		if data.handshake_response then
+			log("Handshake response status: '" .. tostring(data.handshake_response.status) .. "'")
+			for key, value in pairs(data.handshake_response.headers) do
+				log("Handshake response header: '" .. key .. ": " .. value .. "'")
+			end
+			log("Handshake response body: '" .. tostring(data.handshake_response.response) .. "'")
+		end
+	elseif data.event == websocket.EVENT_MESSAGE then
+		--log("Receiving: '" .. tostring(data.message) .. "'")
+
+		DRSYNC.ON_MESSAGE(data.message)
+	end
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+end
+
+function finalize(self)
+	if self.connection ~= nil then
+		websocket.disconnect(self.connection)
+	end
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("connect_data") then
+		pprint(message)
+		--self.playername = message.name
+		self.url = "ws://" .. message.ip ..":"..message.port
+		local params = {}
+		self.connection = websocket.connect(self.url, params, websocket_callback)
+	end
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("touch") and action.pressed then
+		print("do spawn")
+		--factory.create("client:/client#test_factory", vmath.vector3(action.x, action.y, 0))
+		local obj = factory.create("client:/client#player_factory", vmath.vector3(action.x, action.y, 0))
+		--go.set(obj, "playername", self.playername)
+	end
+end

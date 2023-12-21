@@ -1,0 +1,41 @@
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	--DRSYNC.please_sync("position.x")
+	--DRSYNC.please_sync("position.y")
+	DRSYNC.please_sync("position")
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("DRSYNC_LOCAL") then
+		self.local_player = true
+	elseif message_id == hash("DRSYNC_REMOTE") then
+		
+	end
+end
+
+function update(self, dt)
+end
+
+function on_input(self, action_id, action)
+	if not self.local_player then
+		return
+	end
+	
+	local p = go.get_position()
+	local speed = 3
+	if action_id == hash("up") then
+		p.y = p.y + speed
+	elseif action_id == hash("down") then
+		p.y = p.y - speed
+	elseif action_id == hash("right") then
+		p.x = p.x + speed
+	elseif action_id == hash("left") then
+		p.x = p.x - speed
+	end
+	go.set_position(p)
+
+	if action_id == nil then
+
+	end
+end

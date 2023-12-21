@@ -1,0 +1,27 @@
+go.property("clientproxy", msg.url())
+go.property("serverproxy", msg.url())
+
+function init(self)
+    
+end
+
+function update(self, dt)
+    -- Add update code here
+    -- Learn more: https://defold.com/manuals/script/
+    -- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("start_client") then
+        msg.post(self.clientproxy, "load")
+        --msg.post("client:/client", "connect_data", message)
+        self.connect_data = message
+        msg.post("#maingui", "disable")
+    elseif message_id == hash("start_server") then
+        msg.post(self.serverproxy, "load")
+        msg.post("#maingui", "disable")
+    elseif message_id == hash("proxy_loaded") then
+        msg.post(sender, "enable")
+        msg.post("client:/client", "connect_data", self.connect_data)
+    end
+end
