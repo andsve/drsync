@@ -86,6 +86,7 @@ local function is_defold_vector(v)
 end
 
 DRSYNC.SYNCED_PROPS = {}
+DRSYNC.LOCALY_UPDATED_PROPS = {}
 DRSYNC.please_sync = function(prop, update_rate, interpolate)
     local url = msg.url()
     local fragment = url.fragment
@@ -122,7 +123,9 @@ DRSYNC.please_sync = function(prop, update_rate, interpolate)
         prop_type = prop_type,
         prev_value = current_value,
         update_rate = update_rate,
-        interpolate = interpolate
+        update_tick = 0,
+        interpolate = interpolate,
+        time = 0,
     })
 end
 

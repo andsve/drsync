@@ -4,27 +4,90 @@ function init(self)
     self.id = nil
     self.factory_url = nil
     self.is_local = false
+    self.update_tick = 0
+    self.update_tick_reset = 1/60 -- will I regret setting this default?
 end
 
 function final(self)
     -- todo remove remotely etc
 end
 
-function update(self, dt)
-    -- only push updates from local instances
-    if not self.is_local then
-        return
-    end
-    
+function make_url_key(self)
     local url = msg.url()
     url.fragment = nil
 
-    local urlkey = hash_to_hex(url.socket)..hash_to_hex(url.path)
+    return hash_to_hex(url.socket)..hash_to_hex(url.path)
+end
 
+function update(self, dt)
+    local url = msg.url()
+    url.fragment = nil
+    --[[
+    local urlkey = hash_to_hex(url.socket)..hash_to_hex(url.path)
+    --]]
+    local urlkey = make_url_key(self)
+    
+    -- only push updates from local instances
+    if not self.is_local then
+
+        -- check props that are updated remotely if they need to be interpolated
+        if DRSYNC.LOCALY_UPDATED_PROPS[urlkey] then
+            for k, v in pairs(DRSYNC.LOCALY_UPDATED_PROPS[urlkey]) do
+                local i = v.i
+                local n_i = (i + 1) % 2
+                local curr = v[i]
+                local prev = v[n_i]
+
+                if not prev then
+                    prev = curr
+                end
+
+                if prev.value ~= curr.value then -- todo probably wont work for other types than number
+
+                    local prop = k
+                    local proptype = curr.type
+                    local update_rate = curr.update_rate
+                    local update_tick = curr.update_tick
+
+                    local prev_value = prev.value
+                    local curr_value = curr.value
+
+                    local diff_time = (curr.last_sync - prev.last_sync)
+
+                    local new_value = nil
+                    if proptype == "number" or proptype == "vec3" or proptype == "vec4" then
+                        local diff_value = (curr_value - prev_value)
+                        local delta_value = diff_value / diff_time
+                        new_value = go.get(url, prop) + delta_value * dt
+                    else
+                        error("interpolation for " .. proptype .. " not implemeted!")
+                    end
+
+                    go.set(url, prop, new_value)
+                    --print("updating with " .. new_value)
+
+                    --v.i = n_i
+                    --v[i].value = new_value
+                end
+            end
+        end
+        
+        return
+    end
+
+    -- check local props if they should be forwarded to server
     if DRSYNC.SYNCED_PROPS[urlkey] then
         for k,v in pairs(DRSYNC.SYNCED_PROPS[urlkey]) do
+            -- downtick the update ticker, make sure we follow the update rate
+            local tick_ended = false
+            v.update_tick = v.update_tick - dt
+            v.time = v.time + dt
+            if v.update_tick < 0 then
+                tick_ended = true
+            end
+                
             local value = go.get(url, v.prop)
-            local packed_value = raw_value
+            local packed_value = nil
             local has_changed = false
             --local proptype = "string"
             --local typestr = type(pv)
@@ -50,13 +113,30 @@ function update(self, dt)
                 packed_value = tostring(value)
             end
 
+            local should_send = false
             if has_changed then
+                should_send = tick_ended or v.halted
+                v.halted = false
+            else
+                if not v.halted then
+                    v.halted = true
+                    should_send = true
+                end
+            end
+
+            if should_send then
+                -- reset update tick to update rate
+                v.update_tick = 1.0 / v.update_rate
                 v.prev_value = value
                 DRSYNC._SEND_MESSAGE("DRSYNC_PROP", {
                     id = self.id,
                     prop = v.prop,
                     value = packed_value,
-                    type = v.prop_type
+                    type = v.prop_type,
+                    interpolate = v.interpolate, -- todo might not want to send this every sync
+                    update_rate = v.update_rate,
+                    update_tick = v.update_tick,
+                    last_sync = v.time,
                 })
             end
         end
@@ -89,6 +169,7 @@ function on_message(self, message_id, message, sender)
         local prop = message.prop
         local value = message.value
         local proptype = message.type
+        local interpolate = message.interpolate or false
 
         local url = msg.url()
         url.fragment = nil
@@ -103,5 +184,25 @@ function on_message(self, message_id, message, sender)
             value = vmath.vector4(tonumber(tx), tonumber(ty), tonumber(tz), tonumber(tw))
         end
         go.set(url, prop, value)
+
+        if interpolate then
+            message.value = value
+            
+            --DRSYNC.LOCALY_UPDATED_PROPS
+            local urlkey = make_url_key(self)
+            if not DRSYNC.LOCALY_UPDATED_PROPS[urlkey] then
+                DRSYNC.LOCALY_UPDATED_PROPS[urlkey] = {}
+            end
+
+            if not DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop] then
+                DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop] = { i = 0 }
+            else
+                DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop].i = (DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop].i + 1) % 2
+            end
+
+            local i = DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop].i
+            DRSYNC.LOCALY_UPDATED_PROPS[urlkey][prop][i] = message
+            
+        end
     end
 end

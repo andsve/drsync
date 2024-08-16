@@ -1,9 +1,9 @@
 function init(self)
 	msg.post(".", "acquire_input_focus")
 
-	--DRSYNC.please_sync("position.x")
+	--DRSYNC.please_sync("position.x", 30, true)
 	--DRSYNC.please_sync("position.y")
-	DRSYNC.please_sync("position")
+	DRSYNC.please_sync("position", 30, true)
 end
 
 function on_message(self, message_id, message, sender)
