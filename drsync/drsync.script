@@ -144,7 +144,7 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-    if message_id == hash("DRSYNC_LOCAL") then
+    if message_id == hash("DRSYNC_LOCAL") or message_id == hash("DRSYNC_LATE_SPAWN") then
         self.is_local = true
         self.id = message.id
         self.factory_url = message.factory_url
@@ -152,8 +152,13 @@ function on_message(self, message_id, message, sender)
         local p = go.get_position()
         local r = go.get_rotation()
         local s = go.get_scale()
+        local to = nil
+        if message_id == hash("DRSYNC_LATE_SPAWN") then
+            to = message.to
+        end
 
         DRSYNC._SEND_MESSAGE("DRSYNC_SPAWN", {id = self.id, url = self.factory_url,
+            to = to,
             position = {x=p.x,y=p.y,z=p.z},
             rotation = {x=r.x,y=r.y,z=r.z,w=r.w},
             scale = {x=s.x,y=s.y,z=s.z},

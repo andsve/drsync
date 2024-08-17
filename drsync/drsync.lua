@@ -22,8 +22,10 @@ end
 --print("made id:", DRSYNC.MAKE_ID())
 DRSYNC.CLIENT_ID = DRSYNC.MAKE_ID()
 DRSYNC.LOCAL_IDS = {}
+DRSYNC.LOCAL_FACTORY_URLS = {}
 DRSYNC.REMOTE_IDS = {}
 DRSYNC.REMOTE_CLIENTS = {}
+
 DRSYNC._factory_create = factory.create
 factory.create = function(url, position, rotation, properties, scale)
     -- todo verify url is absolue path
@@ -34,6 +36,7 @@ factory.create = function(url, position, rotation, properties, scale)
     -- generate new local id
     local id = "["..DRSYNC.CLIENT_ID.."]"..DRSYNC.MAKE_ID()
     DRSYNC.LOCAL_IDS[id] = obj
+    DRSYNC.LOCAL_FACTORY_URLS[id] = url
 
     -- notify new gameobject about its DRSYNC id
     msg.post(obj, "DRSYNC_LOCAL", {id = id, factory_url = url})
@@ -47,6 +50,10 @@ DRSYNC.ON_MESSAGE = function(data)
     local message = data.message
 
     if message_id == "DRSYNC_SPAWN" then
+        if message.to and message.to == DRSYNC.CLIENT_ID then
+            print("ignoring spawn!")
+        end
+        
         print("DRSYNC GOT: " .. message_id)
         local p = vmath.vector3(tonumber(message.position.x), tonumber(message.position.y), tonumber(message.position.z))
         print("message.url:", message.url)
@@ -73,6 +80,12 @@ DRSYNC.ON_MESSAGE = function(data)
                 DRSYNC.please_start_session()
 
                 DRSYNC.ON_NEW_CLIENT(message.from, message.data)
+
+                -- make sure the new client knows about our locally created objects
+                -- DRSYNC.LOCAL_IDS[id] = obj
+                for k,v in pairs(DRSYNC.LOCAL_IDS) do
+                    msg.post(v, "DRSYNC_LATE_SPAWN", {to = message.from, id = k, factory_url = DRSYNC.LOCAL_FACTORY_URLS[k]})
+                end
             end
         else
             print("this is us connecting")
