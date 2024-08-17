@@ -11,9 +11,19 @@ local function websocket_callback(self, conn, data)
 	elseif data.event == websocket.EVENT_CONNECTED then
 		--update_gui(self)
 		log("Connected: " .. tostring(conn))
+		log("We are client id: " .. DRSYNC.CLIENT_ID)
+		DRSYNC.ON_NEW_CLIENT = function(client_id, initial_data)
+			log("New client: " .. client_id .. " with playername: " .. initial_data.playername)
+			DRSYNC.please_tell_client(client_id, "oh hai")
+		end
+		DRSYNC.ON_TOLD = function(from, data)
+			log(from .. " just told us: '" .. data .. "'")
+		end
 		DRSYNC.SEND_MESSAGE = function(data)
 			websocket.send(self.connection, data)
 		end
+		DRSYNC.please_start_session({playername = self.playername})
+		DRSYNC.please_tell_everyone("hi everyone")
 	elseif data.event == websocket.EVENT_ERROR then
 		log("Error: '" .. tostring(data.message) .. "'")
 		if data.handshake_response then
@@ -49,7 +59,7 @@ end
 function on_message(self, message_id, message, sender)
 	if message_id == hash("connect_data") then
 		pprint(message)
-		--self.playername = message.name
+		self.playername = message.name
 		self.url = "ws://" .. message.ip ..":"..message.port
 		local params = {}
 		self.connection = websocket.connect(self.url, params, websocket_callback)

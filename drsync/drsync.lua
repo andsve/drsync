@@ -23,6 +23,7 @@ end
 DRSYNC.CLIENT_ID = DRSYNC.MAKE_ID()
 DRSYNC.LOCAL_IDS = {}
 DRSYNC.REMOTE_IDS = {}
+DRSYNC.REMOTE_CLIENTS = {}
 DRSYNC._factory_create = factory.create
 factory.create = function(url, position, rotation, properties, scale)
     -- todo verify url is absolue path
@@ -57,15 +58,52 @@ DRSYNC.ON_MESSAGE = function(data)
         if DRSYNC.REMOTE_IDS[id] then
             msg.post(DRSYNC.REMOTE_IDS[id], "DRSYNC_PROP", message)
         end
+        
+    elseif message_id == "DRSYNC_START" then
+        -- someone just started their session
+        print("someone just connected: " .. message.from)
+        -- make sure its not us.. lol
+        if message.from ~= DRSYNC.CLIENT_ID then
+            -- just check we haven't seen this client before
+            if not DRSYNC.REMOTE_CLIENTS[message.from] then
+                -- keep track of who connected
+                DRSYNC.REMOTE_CLIENTS[message.from] = message.from
+
+                -- notify new client that we are here as well
+                DRSYNC.please_start_session()
+
+                DRSYNC.ON_NEW_CLIENT(message.from, message.data)
+            end
+        else
+            print("this is us connecting")
+        end
+        
+    elseif message_id == "DRSYNC_TELL" then
+        
+        if not message.to or message.to == DRSYNC.CLIENT_ID then
+            DRSYNC.ON_TOLD(message.from, message.data)
+        end
+        
+    else
+        --pprint(message)
+        error("DRSYNC message_id '" .. message_id .. "' not implemented")
     end
 end
 
+DRSYNC.ON_NEW_CLIENT = function(client_id)
+    -- overwrite this function if you want to know if someone connects!
+end
+
+DRSYNC.ON_TOLD = function(from, data)
+    error("we were told but no ON_TOLD function has been implemented!")
+end
+
 DRSYNC._SEND_MESSAGE = function(message_id, message)
-    DRSYNC.SEND_MESSAGE(json.encode({message_id = message_id, message = message}))    
+    DRSYNC.SEND_MESSAGE(json.encode({message_id = message_id, message = message}))
 end
 
 DRSYNC.SEND_MESSAGE = function(data)
-    print("DRSYNC.SEND_MESSAGE needs to be supplied!")
+    error("DRSYNC.SEND_MESSAGE needs to be supplied!")
 end
 
 local function is_defold_vector(v)
@@ -126,6 +164,34 @@ DRSYNC.please_sync = function(prop, update_rate, interpolate)
         update_tick = 0,
         interpolate = interpolate,
         time = 0,
+    })
+end
+
+DRSYNC.please_tell_everyone = function(data)
+    DRSYNC._SEND_MESSAGE("DRSYNC_TELL", {
+        to = nil,
+        from = DRSYNC.CLIENT_ID,
+        data = data
+    })
+end
+
+DRSYNC.please_tell_client = function(client_id, data)
+    DRSYNC._SEND_MESSAGE("DRSYNC_TELL", {
+        to = client_id,
+        from = DRSYNC.CLIENT_ID,
+        data = data
+    })
+end
+
+DRSYNC.STORED_INITIAL_DATA = nil
+DRSYNC.please_start_session = function(initial_data)
+    if initial_data then
+        DRSYNC.STORED_INITIAL_DATA = initial_data
+    end
+    initial_data = DRSYNC.STORED_INITIAL_DATA
+    DRSYNC._SEND_MESSAGE("DRSYNC_START", {
+        from = DRSYNC.CLIENT_ID,
+        data = initial_data
     })
 end
 
