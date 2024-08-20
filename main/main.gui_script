@@ -9,6 +9,9 @@ function init(self)
     self.name = ""
     self.server_ip = ""
     self.server_port = ""
+
+    local instance_index = sys.get_config_int("project.instance_index", 0)
+    gui.set_text(gui.get_node("input_name/content"), "Player " .. instance_index)
 end
 
 function update(self, dt)

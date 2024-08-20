@@ -53,6 +53,7 @@ function update(self, dt)
                     local curr_value = curr.value
 
                     local diff_time = (curr.last_sync - prev.last_sync)
+                    diff_time = diff_time 
 
                     local new_value = nil
                     if proptype == "number" or proptype == "vec3" or proptype == "vec4" then
